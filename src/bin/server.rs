@@ -1,8 +1,5 @@
 use anyhow::{anyhow, Error};
-use ethers::{
-    prelude::*,
-    utils::rlp::{Decodable, Rlp},
-};
+use ethers::prelude::*;
 use futures::{sink::SinkExt, stream::StreamExt};
 use nym_websocket::responses::ServerResponse;
 use tokio::net::TcpStream;
@@ -10,7 +7,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
-use nym_ethtx::DEFAULT_NYM_CLIENT_ENDPOINT;
+use nym_ethtx::{Network, DEFAULT_NYM_CLIENT_ENDPOINT};
 
 /// Server maintains a connection to a Nym client and upon receiving an Ethereum
 /// transaction, it submits to an Ethereum node.
@@ -57,13 +54,9 @@ impl<M: Middleware + 'static> Server<M> {
                 }
             };
 
-            let transaction_res = decode_transaction(&msg_bytes.message);
-            if transaction_res.is_err() {
-                warn!("{:?}", transaction_res.err());
-                continue;
-            }
-
-            let receipt_res = self.submit_transaction(&transaction_res.unwrap()).await;
+            let receipt_res = self
+                .submit_transaction(Bytes::from(msg_bytes.message))
+                .await;
             if receipt_res.is_err() {
                 warn!("{:?}", receipt_res.err());
                 continue;
@@ -73,11 +66,8 @@ impl<M: Middleware + 'static> Server<M> {
         }
     }
 
-    async fn submit_transaction(
-        &self,
-        transaction: &Transaction,
-    ) -> Result<TransactionReceipt, Error> {
-        let pending_tx = self.m.send_transaction(transaction, None).await?;
+    async fn submit_transaction(&self, transaction: Bytes) -> Result<TransactionReceipt, Error> {
+        let pending_tx = self.m.send_raw_transaction(transaction).await?;
         info!("submitted transaction: hash {:?}", pending_tx.tx_hash());
         let maybe_receipt = pending_tx.await?;
         if maybe_receipt.is_none() {
@@ -94,12 +84,6 @@ impl<M: Middleware + 'static> Server<M> {
     }
 }
 
-fn decode_transaction(bytes: &[u8]) -> Result<Transaction, Error> {
-    let rlp = Rlp::new(bytes);
-    Transaction::decode(&rlp)
-        .map_err(|e| anyhow!("failed to decode transaction from message: {:?}", e))
-}
-
 fn parse_nym_message(msg: Message) -> Result<ServerResponse, Error> {
     match msg {
         Message::Text(str) => ServerResponse::deserialize(&str.into_bytes())
@@ -114,11 +98,11 @@ fn parse_nym_message(msg: Message) -> Result<ServerResponse, Error> {
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug")),
         )
         .init();
 
-    let eth_endpoint = "https://goerli.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27";
+    let eth_endpoint = Network::Development.get_endpoint();
     let provider =
         Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
 
