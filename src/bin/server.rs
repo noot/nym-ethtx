@@ -11,17 +11,17 @@ use nym_ethtx::{Network, DEFAULT_NYM_CLIENT_ENDPOINT};
 
 /// Server maintains a connection to a Nym client and upon receiving an Ethereum
 /// transaction, it submits to an Ethereum node.
-pub struct Server<M: Middleware + 'static> {
+pub struct Server {
     ws: WebSocketStream<TcpStream>,
-    m: M,
+    provider: Provider<Http>,
 }
 
-impl<M: Middleware + 'static> Server<M> {
-    pub async fn new(endpoint: Option<String>, m: M) -> Result<Self, Error> {
+impl Server {
+    pub async fn new(endpoint: Option<String>, provider: Provider<Http>) -> Result<Self, Error> {
         let (ws, _) =
             connect_async(endpoint.unwrap_or(DEFAULT_NYM_CLIENT_ENDPOINT.to_string())).await?;
 
-        Ok(Server { ws, m })
+        Ok(Server { ws, provider })
     }
 
     pub async fn send_address_request(&mut self) -> Result<(), Error> {
@@ -67,7 +67,7 @@ impl<M: Middleware + 'static> Server<M> {
     }
 
     async fn submit_transaction(&self, transaction: Bytes) -> Result<TransactionReceipt, Error> {
-        let pending_tx = self.m.send_raw_transaction(transaction).await?;
+        let pending_tx = self.provider.send_raw_transaction(transaction).await?;
         info!("submitted transaction: hash {:?}", pending_tx.tx_hash());
         let maybe_receipt = pending_tx.await?;
         if maybe_receipt.is_none() {
@@ -114,20 +114,11 @@ async fn main() {
 #[tokio::test]
 async fn test_server() {
     use ethers::utils::Anvil;
-    use std::{sync::Arc, time::Duration};
 
     let anvil = Anvil::new().spawn();
-    let wallet: LocalWallet = anvil.keys()[0].clone().into();
-    let provider = Provider::<Http>::try_from(anvil.endpoint())
-        .unwrap()
-        .interval(Duration::from_millis(10u64));
-    let client = Arc::new(
-        SignerMiddleware::new_with_provider_chain(provider, wallet)
-            .await
-            .unwrap(),
-    );
+    let provider = Provider::<Http>::try_from(anvil.endpoint()).unwrap();
 
-    let mut server = Server::new(None, client).await.unwrap();
+    let mut server = Server::new(None, provider).await.unwrap();
     server.send_address_request().await.unwrap();
     tokio::spawn(async move {
         server.listen().await;

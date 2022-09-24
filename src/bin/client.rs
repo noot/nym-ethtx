@@ -85,20 +85,15 @@ async fn main() {
     );
     let mut client = Client::new(None, provider).await.unwrap();
 
-    let mut tx_req = TypedTransaction::Legacy(TransactionRequest {
-        from: None,
-        to: Some(NameOrAddress::from(
-            H160::from_str("0x1EA777Dc621f5A63E63bbcE4fc9caE3c5CDEDAFB").unwrap(),
-        )),
-        gas: None,
-        gas_price: None,
-        value: Some(U256::from(100_000_000)),
-        data: None,
-        nonce: None,
-        chain_id: None,
-    });
+    // TODO: CLI flags
+    let mut tx_req = TransactionRequest::default();
+    tx_req.to = Some(NameOrAddress::from(
+        H160::from_str("0x1EA777Dc621f5A63E63bbcE4fc9caE3c5CDEDAFB").unwrap(),
+    ));
+    tx_req.value = Some(U256::from(100_000_000));
+    let mut tx = TypedTransaction::Legacy(tx_req);
 
-    let tx_signed = client.sign_transaction_request(&mut tx_req).await.unwrap();
+    let tx_signed = client.sign_transaction_request(&mut tx).await.unwrap();
     client.submit_transaction(tx_signed).await.unwrap();
     client.close().await.unwrap();
 }
