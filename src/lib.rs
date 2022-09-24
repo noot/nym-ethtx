@@ -31,6 +31,7 @@ impl Network {
 }
 
 pub const DEFAULT_NYM_CLIENT_ENDPOINT: &str = "ws://localhost:1977";
+pub const DEFAULT_SERVER: &str = "DXHLCASnJGSesso5hXus1CtgifBpaPqAj7thZphp52xN.7udbVvZ199futJNur71L3vHDNdnbVxxBvFKVzhEifXvE@5vC8spDvw5VDQ8Zvd9fVvBhbUDv9jABR4cXzd4Kh5vz";
 
-// pub mod client;
-// pub mod server;
+pub mod client;
+pub mod server;
