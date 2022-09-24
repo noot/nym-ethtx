@@ -7,6 +7,8 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::info;
 
+use crate::Network;
+
 /// Client sends transactions through the Nym mixnet to a Server.
 pub struct Client<M: Middleware + 'static> {
     recipient: Recipient,
@@ -34,10 +36,13 @@ impl<M: Middleware + 'static> Client<M> {
         Ok(tx.rlp_signed(&sig))
     }
 
-    pub async fn submit_transaction(&mut self, tx: Bytes) -> Result<(), Error> {
+    pub async fn submit_transaction(&mut self, tx: Bytes, network: Network) -> Result<(), Error> {
+        let mut message = network.to_vec();
+        message.append(&mut tx.to_vec());
+
         let nym_packet = ClientRequest::Send {
             recipient: self.recipient,
-            message: tx.to_vec(),
+            message: message,
             with_reply_surb: false,
         };
 
@@ -58,7 +63,7 @@ impl<M: Middleware + 'static> Client<M> {
 
 #[tokio::test]
 async fn test_client() {
-    use crate::{DEFAULT_NYM_CLIENT_ENDPOINT, DEFAULT_SERVER};
+    use crate::{Network, DEFAULT_NYM_CLIENT_ENDPOINT, DEFAULT_SERVER};
     use ethers::utils::Anvil;
     use std::sync::Arc;
     use std::time::Duration;
@@ -82,6 +87,9 @@ async fn test_client() {
     let mut tx_req = TypedTransaction::Legacy(TransactionRequest::default());
 
     let tx_signed = client.sign_transaction_request(&mut tx_req).await.unwrap();
-    client.submit_transaction(tx_signed).await.unwrap();
+    client
+        .submit_transaction(tx_signed, Network::Development)
+        .await
+        .unwrap();
     client.close().await.unwrap();
 }

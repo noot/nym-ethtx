@@ -13,14 +13,6 @@ It has two components:
 
 ## Usage
 
-### Build
-
-```bash
-git clone https://github.com/noot/nym-ethtx.git
-cd nym-ethtx
-cargo build --release
-```
-
 ### Run Nym websockets client
 
 Both the client and server require a Nym websockets client to connect to.
@@ -31,13 +23,21 @@ To run one, go to your `nym` dir:
 ./target/release/nym-client run --id <your-id>
 ```
 
+### Build
+
+```bash
+git clone https://github.com/noot/nym-ethtx.git
+cd nym-ethtx
+cargo build --release
+```
+
 ### Network
 
 By default, this library uses a local Ethereum chain (`http://localhost:8545`). However, it also supports mainnet and Goerli with the `--network` or `-n` flags.
 
 ### Client
 
-The client by default uses the server with Nym address `DXHLCASnJGSesso5hXus1CtgifBpaPqAj7thZphp52xN.7udbVvZ199futJNur71L3vHDNdnbVxxBvFKVzhEifXvE@5vC8spDvw5VDQ8Zvd9fVvBhbUDv9jABR4cXzd4Kh5vz`. If this isn't available, you'll need to run a `server` or find one to send the request to.
+The client by default uses the server with Nym address `HGLX5467Kr8hHaYENr8meY3KDH5BozVQRR8XTBD8UseB.Fdnv3igmSrGcUZSA4bUyqa6adyHKjZGyhFnnkWMJsGAt@62Lq9D5yhRVXyeHrBjqoQMg3i9aVTJY7nQSnB74VH31t`, running on Goerli. If this isn't available, or you want to use a different network, you'll need to run a `server` or find one to send the request to.
 
 The client requires a (hex-encoded) Ethereum private key to sign the transaction. The app looks for this key by default in the file `client.key`. You can also specify the file with `--key` or `-k`.
  

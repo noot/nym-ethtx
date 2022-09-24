@@ -21,7 +21,7 @@ struct Options {
     #[structopt(short, long, default_value = "client.key")]
     key: String,
 
-    /// Path to private key file.
+    /// Nym server to send transaction to.
     #[structopt(short, long, default_value = DEFAULT_SERVER)]
     server: String,
 
@@ -57,7 +57,8 @@ async fn main() {
 
     let options: Options = Options::from_args();
 
-    let eth_endpoint = Network::from_str(&options.network).unwrap().get_endpoint();
+    let network = Network::from_str(&options.network).unwrap();
+    let eth_endpoint = network.get_endpoint();
     let provider =
         Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
 
@@ -104,6 +105,6 @@ async fn main() {
 
     // sign and submit tx
     let tx_signed = client.sign_transaction_request(&mut tx).await.unwrap();
-    client.submit_transaction(tx_signed).await.unwrap();
+    client.submit_transaction(tx_signed, network).await.unwrap();
     client.close().await.unwrap();
 }
