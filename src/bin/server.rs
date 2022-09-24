@@ -117,6 +117,14 @@ async fn main() {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+
+    let eth_endpoint = "https://goerli.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27";
+    let provider =
+        Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
+
+    let mut server = Server::new(None, provider).await.unwrap();
+    server.send_address_request().await.unwrap();
+    server.listen().await;
 }
 
 #[tokio::test]
