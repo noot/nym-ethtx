@@ -1,20 +1,16 @@
 use anyhow::{anyhow, Error};
 use ethers::{
     prelude::*,
-    utils::{
-        rlp::{Decodable, Rlp},
-        Anvil,
-    },
+    utils::rlp::{Decodable, Rlp},
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use nym_websocket::responses::ServerResponse;
-use std::{sync::Arc, time::Duration};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
-pub const DEFAULT_NYM_CLIENT_ENDPOINT: &str = "ws://localhost:1977";
+use nym_ethtx::DEFAULT_NYM_CLIENT_ENDPOINT;
 
 /// Server maintains a connection to a Nym client and upon receiving an Ethereum
 /// transaction, it submits to an Ethereum node.
@@ -89,6 +85,13 @@ impl<M: Middleware + 'static> Server<M> {
         }
         Ok(maybe_receipt.unwrap())
     }
+
+    pub async fn close(&mut self) -> Result<(), Error> {
+        self.ws
+            .close(None)
+            .await
+            .map_err(|e| anyhow!("failed to close: {:?}", e))
+    }
 }
 
 fn decode_transaction(bytes: &[u8]) -> Result<Transaction, Error> {
@@ -114,6 +117,12 @@ async fn main() {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+}
+
+#[tokio::test]
+async fn test_server() {
+    use ethers::utils::Anvil;
+    use std::{sync::Arc, time::Duration};
 
     let anvil = Anvil::new().spawn();
     let wallet: LocalWallet = anvil.keys()[0].clone().into();
@@ -128,5 +137,7 @@ async fn main() {
 
     let mut server = Server::new(None, client).await.unwrap();
     server.send_address_request().await.unwrap();
-    server.listen().await;
+    tokio::spawn(async move {
+        server.listen().await;
+    });
 }
