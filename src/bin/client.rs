@@ -4,6 +4,7 @@ use futures::sink::SinkExt;
 use nym_addressing::clients::Recipient;
 use nym_websocket::requests::ClientRequest;
 use std::{fs, str::FromStr, sync::Arc};
+use structopt::StructOpt;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::info;
@@ -13,18 +14,59 @@ use nym_ethtx::{Network, DEFAULT_NYM_CLIENT_ENDPOINT};
 
 pub const DEFAULT_SERVER: &str = "DXHLCASnJGSesso5hXus1CtgifBpaPqAj7thZphp52xN.7udbVvZ199futJNur71L3vHDNdnbVxxBvFKVzhEifXvE@5vC8spDvw5VDQ8Zvd9fVvBhbUDv9jABR4cXzd4Kh5vz";
 
+#[derive(StructOpt)]
+struct Options {
+    /// Nym websocket client endpoint. Default: ws://localhost:1977
+    #[structopt(short, long, default_value = DEFAULT_NYM_CLIENT_ENDPOINT)]
+    endpoint: String,
+
+    /// Ethereum network to use.
+    /// One of mainnet, goerli, or development.
+    #[structopt(short, long, default_value = "development")]
+    network: String,
+
+    /// Path to private key file.
+    #[structopt(short, long, default_value = "client.key")]
+    key: String,
+
+    /// Path to private key file.
+    #[structopt(short, long, default_value = DEFAULT_SERVER)]
+    server: String,
+
+    /// Transaction recipient.
+    /// Do not set for contract deployment.
+    #[structopt(short, long)]
+    to: Option<String>,
+
+    /// Transaction value (in ether).
+    #[structopt(short, long)]
+    value: Option<String>,
+
+    /// Transaction gas limit.
+    #[structopt(short, long)]
+    gas: Option<String>,
+
+    /// Transaction gas price (in gwei).
+    #[structopt(short, long)]
+    gas_price: Option<String>,
+
+    /// Transaction data, hex-encoded.
+    #[structopt(short, long)]
+    data: Option<String>,
+}
+
 /// Client sends transactions through the Nym mixnet to a Server.
 pub struct Client<M: Middleware + 'static> {
+    recipient: Recipient,
     ws: WebSocketStream<TcpStream>,
     m: M,
 }
 
 impl<M: Middleware + 'static> Client<M> {
-    pub async fn new(endpoint: Option<String>, m: M) -> Result<Self, Error> {
-        let (ws, _) =
-            connect_async(endpoint.unwrap_or(DEFAULT_NYM_CLIENT_ENDPOINT.to_string())).await?;
+    pub async fn new(recipient: Recipient, endpoint: String, m: M) -> Result<Self, Error> {
+        let (ws, _) = connect_async(endpoint).await?;
 
-        Ok(Client { ws, m })
+        Ok(Client { recipient, ws, m })
     }
 
     pub async fn sign_transaction_request(
@@ -41,9 +83,8 @@ impl<M: Middleware + 'static> Client<M> {
     }
 
     pub async fn submit_transaction(&mut self, tx: Bytes) -> Result<(), Error> {
-        let recipient = Recipient::try_from_base58_string(DEFAULT_SERVER)?;
         let nym_packet = ClientRequest::Send {
-            recipient,
+            recipient: self.recipient,
             message: tx.to_vec(),
             with_reply_surb: false,
         };
@@ -71,28 +112,53 @@ async fn main() {
         )
         .init();
 
-    let eth_endpoint = Network::Development.get_endpoint();
+    let options: Options = Options::from_args();
+
+    let eth_endpoint = Network::from_str(&options.network).unwrap().get_endpoint();
     let provider =
         Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
 
-    let filepath = "client.key";
-    let private_key = fs::read_to_string(filepath).expect("cannot read key file");
+    let private_key = fs::read_to_string(options.key).expect("cannot read key file");
     let wallet = LocalWallet::from_str(&private_key).unwrap();
     let provider = Arc::new(
         SignerMiddleware::new_with_provider_chain(provider, wallet)
             .await
             .unwrap(),
     );
-    let mut client = Client::new(None, provider).await.unwrap();
 
-    // TODO: CLI flags
+    let recipient = Recipient::try_from_base58_string(options.server).unwrap();
+
+    let mut client = Client::new(recipient, options.endpoint, provider)
+        .await
+        .unwrap();
+
+    // form transaction
     let mut tx_req = TransactionRequest::default();
-    tx_req.to = Some(NameOrAddress::from(
-        H160::from_str("0x1EA777Dc621f5A63E63bbcE4fc9caE3c5CDEDAFB").unwrap(),
-    ));
-    tx_req.value = Some(U256::from(100_000_000));
+
+    // TODO: support ENS names
+    if let Some(to) = options.to {
+        tx_req.to = Some(NameOrAddress::from(H160::from_str(&to).unwrap()));
+    }
+
+    if let Some(value) = options.value {
+        tx_req.value = Some(ethers::utils::parse_ether(value).unwrap());
+    }
+
+    if let Some(gas) = options.gas {
+        tx_req.gas = Some(U256::from_str(&gas).unwrap());
+    }
+
+    if let Some(gas_price) = options.gas_price {
+        tx_req.gas_price = Some(ethers::utils::parse_units(gas_price, "gwei").unwrap());
+    }
+
+    if let Some(data) = options.data {
+        tx_req.data = Some(Bytes::from_str(&data).unwrap());
+    }
+
     let mut tx = TypedTransaction::Legacy(tx_req);
 
+    // sign and submit tx
     let tx_signed = client.sign_transaction_request(&mut tx).await.unwrap();
     client.submit_transaction(tx_signed).await.unwrap();
     client.close().await.unwrap();
@@ -115,7 +181,11 @@ async fn test_client() {
             .unwrap(),
     );
 
-    let mut client = Client::new(None, client).await.unwrap();
+    let recipient = Recipient::try_from_base58_string(DEFAULT_SERVER).unwrap();
+
+    let mut client = Client::new(recipient, DEFAULT_NYM_CLIENT_ENDPOINT.to_string(), client)
+        .await
+        .unwrap();
     let mut tx_req = TypedTransaction::Legacy(TransactionRequest {
         from: None,
         to: None,

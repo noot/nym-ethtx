@@ -1,3 +1,5 @@
+use anyhow::{anyhow, Error};
+
 pub enum Network {
     Mainnet,
     Goerli,
@@ -16,6 +18,19 @@ impl Network {
             Network::Development => "http://localhost:8545".to_string(),
         }
     }
+
+    pub fn from_str(s: &str) -> Result<Self, Error> {
+        match s.to_lowercase().as_str() {
+            "mainnet" => Ok(Network::Mainnet),
+            "goerli" => Ok(Network::Goerli),
+
+            "development" => Ok(Network::Development),
+            _ => Err(anyhow!("invalid network {:?}", s)),
+        }
+    }
 }
 
 pub const DEFAULT_NYM_CLIENT_ENDPOINT: &str = "ws://localhost:1977";
+
+// pub mod client;
+// pub mod server;

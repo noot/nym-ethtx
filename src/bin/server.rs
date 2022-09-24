@@ -2,12 +2,25 @@ use anyhow::{anyhow, Error};
 use ethers::prelude::*;
 use futures::{sink::SinkExt, stream::StreamExt};
 use nym_websocket::responses::ServerResponse;
+use structopt::StructOpt;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 use nym_ethtx::{Network, DEFAULT_NYM_CLIENT_ENDPOINT};
+
+#[derive(StructOpt)]
+struct Options {
+    /// Nym websocket client endpoint. Default: ws://localhost:1977
+    #[structopt(short, long, default_value = DEFAULT_NYM_CLIENT_ENDPOINT)]
+    endpoint: String,
+
+    /// Ethereum network to use.
+    /// One of mainnet, goerli, or development.
+    #[structopt(short, long, default_value = "development")]
+    network: String,
+}
 
 /// Server maintains a connection to a Nym client and upon receiving an Ethereum
 /// transaction, it submits to an Ethereum node.
@@ -17,10 +30,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(endpoint: Option<String>, provider: Provider<Http>) -> Result<Self, Error> {
-        let (ws, _) =
-            connect_async(endpoint.unwrap_or(DEFAULT_NYM_CLIENT_ENDPOINT.to_string())).await?;
-
+    pub async fn new(endpoint: String, provider: Provider<Http>) -> Result<Self, Error> {
+        let (ws, _) = connect_async(endpoint).await?;
         Ok(Server { ws, provider })
     }
 
@@ -102,11 +113,14 @@ async fn main() {
         )
         .init();
 
-    let eth_endpoint = Network::Development.get_endpoint();
+    let options: Options = Options::from_args();
+
+    let eth_endpoint = Network::from_str(&options.network).unwrap().get_endpoint();
+
     let provider =
         Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
 
-    let mut server = Server::new(None, provider).await.unwrap();
+    let mut server = Server::new(options.endpoint, provider).await.unwrap();
     server.send_address_request().await.unwrap();
     server.listen().await;
 }
@@ -114,11 +128,14 @@ async fn main() {
 #[tokio::test]
 async fn test_server() {
     use ethers::utils::Anvil;
+    use nym_ethtx::DEFAULT_NYM_CLIENT_ENDPOINT;
 
     let anvil = Anvil::new().spawn();
     let provider = Provider::<Http>::try_from(anvil.endpoint()).unwrap();
 
-    let mut server = Server::new(None, provider).await.unwrap();
+    let mut server = Server::new(DEFAULT_NYM_CLIENT_ENDPOINT.to_string(), provider)
+        .await
+        .unwrap();
     server.send_address_request().await.unwrap();
     tokio::spawn(async move {
         server.listen().await;
