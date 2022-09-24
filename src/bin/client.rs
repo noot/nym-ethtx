@@ -35,23 +35,23 @@ struct Options {
 
     /// Transaction recipient.
     /// Do not set for contract deployment.
-    #[structopt(short, long)]
+    #[structopt(long)]
     to: Option<String>,
 
     /// Transaction value (in ether).
-    #[structopt(short, long)]
+    #[structopt(long)]
     value: Option<String>,
 
     /// Transaction gas limit.
-    #[structopt(short, long)]
+    #[structopt(long)]
     gas: Option<String>,
 
     /// Transaction gas price (in gwei).
-    #[structopt(short, long)]
+    #[structopt(long)]
     gas_price: Option<String>,
 
     /// Transaction data, hex-encoded.
-    #[structopt(short, long)]
+    #[structopt(long)]
     data: Option<String>,
 }
 
@@ -186,16 +186,7 @@ async fn test_client() {
     let mut client = Client::new(recipient, DEFAULT_NYM_CLIENT_ENDPOINT.to_string(), client)
         .await
         .unwrap();
-    let mut tx_req = TypedTransaction::Legacy(TransactionRequest {
-        from: None,
-        to: None,
-        gas: None,
-        gas_price: None,
-        value: None,
-        data: None,
-        nonce: None,
-        chain_id: None,
-    });
+    let mut tx_req = TypedTransaction::Legacy(TransactionRequest::default());
 
     let tx_signed = client.sign_transaction_request(&mut tx_req).await.unwrap();
     client.submit_transaction(tx_signed).await.unwrap();
