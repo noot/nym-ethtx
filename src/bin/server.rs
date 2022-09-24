@@ -1,10 +1,14 @@
 use anyhow::{anyhow, Error};
 use ethers::{
     prelude::*,
-    utils::rlp::{Decodable, Rlp},
+    utils::{
+        rlp::{Decodable, Rlp},
+        Anvil,
+    },
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use nym_websocket::responses::ServerResponse;
+use std::{sync::Arc, time::Duration};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
 use tracing::{debug, error, info, warn};
@@ -73,7 +77,7 @@ impl<M: Middleware + 'static> Server<M> {
         }
     }
 
-    pub async fn submit_transaction(
+    async fn submit_transaction(
         &self,
         transaction: &Transaction,
     ) -> Result<TransactionReceipt, Error> {
@@ -103,10 +107,26 @@ fn parse_nym_message(msg: Message) -> Result<ServerResponse, Error> {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+
+    let anvil = Anvil::new().spawn();
+    let wallet: LocalWallet = anvil.keys()[0].clone().into();
+    let provider = Provider::<Http>::try_from(anvil.endpoint())
+        .unwrap()
+        .interval(Duration::from_millis(10u64));
+    let client = Arc::new(
+        SignerMiddleware::new_with_provider_chain(provider, wallet)
+            .await
+            .unwrap(),
+    );
+
+    let mut server = Server::new(None, client).await.unwrap();
+    server.send_address_request().await.unwrap();
+    server.listen().await;
 }
