@@ -61,7 +61,8 @@ async fn main() {
     let provider =
         Provider::<Http>::try_from(eth_endpoint).expect("could not instantiate HTTP Provider");
 
-    let private_key = fs::read_to_string(options.key).expect("cannot read key file");
+    let private_key = fs::read_to_string(&options.key)
+        .expect(&format!("cannot read key file {:?}", &options.key));
     let wallet = LocalWallet::from_str(&private_key).unwrap();
     let provider = Arc::new(
         SignerMiddleware::new_with_provider_chain(provider, wallet)
