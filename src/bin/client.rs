@@ -12,6 +12,10 @@ struct Options {
     #[structopt(short, long, default_value = DEFAULT_NYM_CLIENT_ENDPOINT)]
     endpoint: String,
 
+    /// Log level. One of debug, info, warn, or error
+    #[structopt(short, long, default_value = "info")]
+    log: String,
+
     /// Ethereum network to use.
     /// One of mainnet, goerli, or development.
     #[structopt(short, long, default_value = "development")]
@@ -49,13 +53,13 @@ struct Options {
 
 #[tokio::main]
 async fn main() {
+    let options: Options = Options::from_args();
+
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(options.log)),
         )
         .init();
-
-    let options: Options = Options::from_args();
 
     let network = Network::from_str(&options.network).unwrap();
     let eth_endpoint = network.get_endpoint();
