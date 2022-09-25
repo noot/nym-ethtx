@@ -84,9 +84,15 @@ async fn main() {
     // form transaction
     let mut tx_req = TransactionRequest::default();
 
-    // TODO: support ENS names
     if let Some(to) = options.to {
-        tx_req.to = Some(NameOrAddress::from(H160::from_str(&to).unwrap()));
+        if to[..2].eq("0x") {
+            tx_req.to = Some(NameOrAddress::from(H160::from_str(&to).unwrap()));
+        } else if to[to.len() - 4..].eq(".eth") {
+            // the input is an ENS name
+            tx_req.to = Some(NameOrAddress::Name(to));
+        } else {
+            panic!("invalid address input: must start with 0x or be an ENS name");
+        }
     }
 
     if let Some(value) = options.value {
