@@ -37,13 +37,13 @@ By default, this library uses a local Ethereum chain (`http://localhost:8545`). 
 
 ### Client
 
-The client by default uses the server with Nym address `HGLX5467Kr8hHaYENr8meY3KDH5BozVQRR8XTBD8UseB.Fdnv3igmSrGcUZSA4bUyqa6adyHKjZGyhFnnkWMJsGAt@62Lq9D5yhRVXyeHrBjqoQMg3i9aVTJY7nQSnB74VH31t`, running on Goerli. If this isn't available, or you want to use a different network, you'll need to run a `server` or find one to send the request to.
+The client by default uses the server with Nym address `HGLX5467Kr8hHaYENr8meY3KDH5BozVQRR8XTBD8UseB.Fdnv3igmSrGcUZSA4bUyqa6adyHKjZGyhFnnkWMJsGAt@62Lq9D5yhRVXyeHrBjqoQMg3i9aVTJY7nQSnB74VH31t`. If this isn't available, you'll need to run a `server` or find one to send the request to.
 
 The client requires a (hex-encoded) Ethereum private key to sign the transaction. The app looks for this key by default in the file `client.key`. You can also specify the file with `--key` or `-k`.
  
 For example, to send ether:
 ```bash
-./target/release/client --to=0x1EA777Dc621f5A63E63bbcE4fc9caE3c5CDEDAFB --value=0.1
+./target/release/client --to=0x1EA777Dc621f5A63E63bbcE4fc9caE3c5CDEDAFB --value=0.1 --network=goerli
 # Sep 24 18:37:37.106  INFO client: signed transaction 0xbe292c8e43d775ef8ec58f974e6403317efdcdc0a09ed8232238dd8bea44ac10
 ```
 
