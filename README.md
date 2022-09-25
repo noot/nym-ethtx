@@ -47,6 +47,13 @@ For example, to send ether:
 # Sep 24 18:37:37.106  INFO client: signed transaction 0xbe292c8e43d775ef8ec58f974e6403317efdcdc0a09ed8232238dd8bea44ac10
 ```
 
+The `to` address can also be an ENS address:
+```
+```bash
+./target/release/client --to=address.eth --value=0.1 --network=goerli
+# Sep 24 18:37:37.106  INFO client: signed transaction 0x0958489d9ab18796439ed38c8028421899125d11fd6ef917118343b5ab7370e3
+```
+
 For more transaction options, see `./target/release/client --help`.
 
 ### Server
