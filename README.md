@@ -48,7 +48,6 @@ For example, to send ether:
 ```
 
 The `to` address can also be an ENS address:
-```
 ```bash
 ./target/release/client --to=address.eth --value=0.1 --network=goerli
 # Sep 24 18:37:37.106  INFO client: signed transaction 0x0958489d9ab18796439ed38c8028421899125d11fd6ef917118343b5ab7370e3
