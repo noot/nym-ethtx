@@ -68,7 +68,7 @@ async fn main() {
 
     let private_key = fs::read_to_string(&options.key)
         .expect(&format!("cannot read key file {:?}", &options.key));
-    let wallet = LocalWallet::from_str(&private_key).unwrap();
+    let wallet = LocalWallet::from_str(&private_key[0..64]).unwrap();
     let provider = Arc::new(
         SignerMiddleware::new_with_provider_chain(provider, wallet)
             .await
